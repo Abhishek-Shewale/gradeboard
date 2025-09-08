@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gradebook Prototype - Track Your Child's Academic Progress</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- Input Methods Section -->
+    <section id="input-section" class="input-section">
+        <div class="container">
+            <h2 class="section-title">Track Your Child's Academic Progress</h2>
+            
+            <!-- Tab Switcher -->
+            <div class="tab-container">
+                <button class="tab-btn active" onclick="switchTab('upload')">
+                    <i class="fas fa-upload"></i> Upload Marksheet
+                </button>
+                <button class="tab-btn" onclick="switchTab('manual')">
+                    <i class="fas fa-edit"></i> Enter Manually
+                </button>
+            </div>
+
+            <!-- Upload Tab -->
+            <div id="upload-tab" class="tab-content active">
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-content">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <h3>Drop your marksheet here</h3>
+                        <p>or <span class="upload-link">browse files</span></p>
+                        <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
+                        <small>Supported formats: PDF, JPG, PNG (Max 10MB)</small>
+                    </div>
+                </div>
+                <div class="upload-progress" id="upload-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <p class="progress-text">Processing your marksheet...</p>
+                </div>
+            </div>
+
+            <!-- Manual Entry Tab -->
+            <div id="manual-tab" class="tab-content">
+                <form id="manual-form" class="manual-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="class-select">Class</label>
+                            <select id="class-select" name="class" required>
+                                <option value="">Select Class</option>
+                                <option value="4th">4th Standard</option>
+                                <option value="5th">5th Standard</option>
+                                <option value="6th">6th Standard</option>
+                                <option value="7th">7th Standard</option>
+                                <option value="8th">8th Standard</option>
+                                <option value="9th">9th Standard</option>
+                                <option value="10th">10th Standard</option>
+                                <option value="11th">11th Standard</option>
+                                <option value="12th">12th Standard</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="board-select">Board</label>
+                            <select id="board-select" name="board" required>
+                                <option value="">Select Board</option>
+                                <option value="CBSE">CBSE</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="test-type">Test Type</label>
+                            <select id="test-type" name="testType" required>
+                                <option value="">Select Test Type</option>
+                                <option value="Unit Test">Unit Test</option>
+                                <option value="Mid-term">Mid-term</option>
+                                <option value="Final">Final Exam</option>
+                                <option value="Monthly">Monthly Test</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="subjects-container" id="subjects-container">
+                        <!-- Dynamic subjects will be added here -->
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-large">
+                        <i class="fas fa-calculator"></i> Analyze Performance
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results Dashboard -->
+    <section id="dashboard" class="dashboard" style="display: none;">
+        <div class="container">
+            <h2 class="section-title">Performance Analysis</h2>
+            
+            <!-- Overall Performance Summary -->
+            <div class="performance-summary">
+                <div class="summary-card">
+                    <div class="summary-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="summary-content">
+                        <h3 id="overall-grade">A+</h3>
+                        <p>Overall Grade</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="summary-content">
+                        <h3 id="overall-percentage">85%</h3>
+                        <p>Average Percentage</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="summary-content">
+                        <h3 id="weak-subjects-count">2</h3>
+                        <p>Subjects Need Attention</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subject-wise Breakdown -->
+            <div class="subjects-breakdown">
+                <h3>Subject-wise Performance</h3>
+                <div class="subjects-grid" id="subjects-grid">
+                    <!-- Dynamic subject cards will be added here -->
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-section">
+                <div class="chart-container">
+                    <h3>Performance Overview</h3>
+                    <canvas id="performance-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Subject Comparison</h3>
+                    <canvas id="subject-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- AI Recommendations -->
+            <div class="recommendations-section">
+                <h3><i class="fas fa-robot"></i>Student AI Recommendations</h3>
+                <div class="recommendations-container" id="recommendations-container">
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Generating personalized recommendations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Study Calendar Section -->
+    <section id="calendar-section" class="calendar-section" style="display: none;">
+        <div class="container">
+            <h2 class="section-title">Study Calendar</h2>
+            <div class="calendar-controls">
+                <button class="btn btn-outline" onclick="toggleCalendarView('weekly')">
+                    <i class="fas fa-calendar-week"></i> Weekly View
+                </button>
+                <button class="btn btn-outline" onclick="toggleCalendarView('monthly')">
+                    <i class="fas fa-calendar-alt"></i> Monthly View
+                </button>
+            </div>
+            <div class="calendar-container" id="calendar-container">
+                <!-- Dynamic calendar will be generated here -->
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p id="loading-text">Processing...</p>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="message-container" class="message-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
