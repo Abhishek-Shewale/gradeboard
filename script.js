@@ -1091,36 +1091,72 @@ function displayRecommendations(recommendations) {
         return;
     }
     
+    // Collect all improvement strategies from weak subjects
+    let allImprovementStrategies = [];
+    if (recommendations.weakSubjects) {
+        console.log('Weak subjects data:', recommendations.weakSubjects);
+        recommendations.weakSubjects.forEach(subject => {
+            console.log('Subject data:', subject);
+            if (subject.improvementStrategies) {
+                console.log('Found improvement strategies:', subject.improvementStrategies);
+                allImprovementStrategies = allImprovementStrategies.concat(subject.improvementStrategies);
+            }
+        });
+    }
+    
+    // Remove duplicates from improvement strategies and limit to 3
+    let uniqueImprovementStrategies = [...new Set(allImprovementStrategies)].slice(0, 3);
+    
+    // If no improvement strategies from AI, provide fallback strategies
+    if (uniqueImprovementStrategies.length === 0) {
+        uniqueImprovementStrategies = [
+            'Focus on understanding fundamental concepts and practice regularly',
+            'Create a consistent study schedule with dedicated time for each subject',
+            'Seek additional help from teachers or tutors for difficult topics'
+        ];
+    }
+    
+    console.log('Final improvement strategies:', uniqueImprovementStrategies);
+    
     container.innerHTML = `
         <div class="recommendation-item">
             <h4><i class="fas fa-chart-line"></i> Overall Assessment</h4>
             <p>${recommendations.overallAssessment || 'Your child shows potential for improvement.'}</p>
         </div>
         
-        ${recommendations.weakSubjects ? recommendations.weakSubjects.map(subject => `
+        ${recommendations.weakSubjects ? recommendations.weakSubjects.map(subject => {
+            // Find the corresponding subject in studentData to get accurate score and grade
+            const originalSubject = studentData.subjects.find(s => 
+                s.name === (subject.subject || subject.name) || 
+                s.name.toLowerCase() === (subject.subject || subject.name || '').toLowerCase()
+            );
+            
+            return `
             <div class="recommendation-item">
                 <h4><i class="fas fa-exclamation-triangle"></i> ${subject.subject || subject.name || 'Subject'} - Needs Attention</h4>
                 <div class="subject-details">
-                    <p><strong>Current Score:</strong> ${subject.score || subject.percentage || 'N/A'}%</p>
-                    <p><strong>Grade:</strong> ${subject.grade || 'N/A'}</p>
+                    <p><strong>Current Score:</strong> ${originalSubject ? originalSubject.percentage.toFixed(1) : (subject.score || subject.percentage || 'N/A')}%</p>
+                    <p><strong>Grade:</strong> ${originalSubject ? originalSubject.grade : (subject.grade || 'N/A')}</p>
                 </div>
-                ${subject.improvementStrategies ? `
-                    <div class="improvement-strategies">
-                        <h5>Improvement Strategies:</h5>
-                        <ul>
-                            ${subject.improvementStrategies.map(strategy => `<li>${strategy}</li>`).join('')}
-                        </ul>
-                    </div>
-                ` : ''}
                 ${generateSubjectResources(subject.subject || subject.name)}
             </div>
-        `).join('') : ''}
+        `;
+        }).join('') : ''}
+        
+        ${uniqueImprovementStrategies.length > 0 ? `
+            <div class="recommendation-item">
+                <h4><i class="fas fa-lightbulb"></i> Improvement Strategies</h4>
+                <ul>
+                    ${uniqueImprovementStrategies.map(strategy => `<li>${strategy}</li>`).join('')}
+                </ul>
+            </div>
+        ` : ''}
         
         ${recommendations.studyTips ? `
             <div class="recommendation-item">
                 <h4><i class="fas fa-lightbulb"></i> Study Tips</h4>
                 <ul>
-                    ${recommendations.studyTips.map(tip => `<li>${tip}</li>`).join('')}
+                    ${recommendations.studyTips.slice(0, 3).map(tip => `<li>${tip}</li>`).join('')}
                 </ul>
             </div>
         ` : ''}
@@ -1259,8 +1295,6 @@ function displayFallbackRecommendations(data) {
                 <li>Create a consistent study schedule with dedicated time for each subject</li>
                 <li>Practice active learning techniques like summarizing and teaching others</li>
                 <li>Take regular breaks during study sessions to maintain focus</li>
-                <li>Review and revise previous topics regularly</li>
-                <li>Seek help from teachers or tutors for difficult concepts</li>
             </ul>
         </div>
         
