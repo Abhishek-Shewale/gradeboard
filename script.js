@@ -7,6 +7,7 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
 let studentData = null;
 let currentTab = 'upload';
 let charts = {};
+let subjectResourcesCache = {}; // Cache for subject resources
 
 // Subject configurations for different classes
 const subjectConfigs = {
@@ -1094,11 +1095,8 @@ function displayRecommendations(recommendations) {
     // Collect all improvement strategies from weak subjects
     let allImprovementStrategies = [];
     if (recommendations.weakSubjects) {
-        console.log('Weak subjects data:', recommendations.weakSubjects);
         recommendations.weakSubjects.forEach(subject => {
-            console.log('Subject data:', subject);
             if (subject.improvementStrategies) {
-                console.log('Found improvement strategies:', subject.improvementStrategies);
                 allImprovementStrategies = allImprovementStrategies.concat(subject.improvementStrategies);
             }
         });
@@ -1115,8 +1113,6 @@ function displayRecommendations(recommendations) {
             'Seek additional help from teachers or tutors for difficult topics'
         ];
     }
-    
-    console.log('Final improvement strategies:', uniqueImprovementStrategies);
     
     container.innerHTML = `
         <div class="recommendation-item">
@@ -1138,7 +1134,9 @@ function displayRecommendations(recommendations) {
                     <p><strong>Current Score:</strong> ${originalSubject ? originalSubject.percentage.toFixed(1) : (subject.score || subject.percentage || 'N/A')}%</p>
                     <p><strong>Grade:</strong> ${originalSubject ? originalSubject.grade : (subject.grade || 'N/A')}</p>
                 </div>
-                ${generateSubjectResources(subject.subject || subject.name)}
+                <div class="subject-resources-loading" data-subject="${subject.subject || subject.name}">
+                    <i class="fas fa-spinner fa-spin"></i> Loading study resources...
+                </div>
             </div>
         `;
         }).join('') : ''}
@@ -1148,9 +1146,9 @@ function displayRecommendations(recommendations) {
                 <h4><i class="fas fa-lightbulb"></i> Improvement Strategies</h4>
                 <ul>
                     ${uniqueImprovementStrategies.map(strategy => `<li>${strategy}</li>`).join('')}
-                </ul>
-            </div>
-        ` : ''}
+                        </ul>
+                    </div>
+                ` : ''}
         
         ${recommendations.studyTips ? `
             <div class="recommendation-item">
@@ -1171,95 +1169,223 @@ function displayRecommendations(recommendations) {
     
     // Add study calendar section
     addStudyCalendarSection();
+    
+    // Load subject resources asynchronously
+    if (recommendations.weakSubjects) {
+        recommendations.weakSubjects.forEach(async (subject) => {
+            const subjectName = subject.subject || subject.name;
+            if (subjectName) {
+                await loadRecommendationSubjectResources(subjectName);
+            }
+        });
+    }
 }
 
 // Generate subject-specific resources
-function generateSubjectResources(subjectName) {
+async function generateSubjectResources(subjectName) {
     if (!subjectName) return '';
     
-    const resources = getSubjectResources(subjectName);
-    
-    return `
-        <div class="subject-resources">
-            <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
-            <div class="resource-grid">
-                <div class="resource-item">
-                    <h6><i class="fas fa-list-ol"></i> Important Topics</h6>
-                    <ul>
-                        ${resources.topics.map(topic => `<li>${topic}</li>`).join('')}
-                    </ul>
-                </div>
-                <div class="resource-item">
-                    <h6><i class="fas fa-flash"></i> Flashcards</h6>
-                    <ul>
-                        ${resources.flashcards.map(card => `<li>${card}</li>`).join('')}
-                    </ul>
-                </div>
-                <div class="resource-item">
-                    <h6><i class="fas fa-file-alt"></i> Worksheets</h6>
-                    <ul>
-                        ${resources.worksheets.map(worksheet => `<li>${worksheet}</li>`).join('')}
-                    </ul>
-                </div>
-                <div class="resource-item">
-                    <h6><i class="fas fa-clipboard-check"></i> Mock Practice</h6>
-                    <ul>
-                        ${resources.mockPractice.map(practice => `<li>${practice}</li>`).join('')}
-                    </ul>
+    try {
+        const resources = await getSubjectResources(subjectName);
+        
+        return `
+            <div class="subject-resources">
+                <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
+                <div class="resource-grid">
+                    <div class="resource-item">
+                        <h6><i class="fas fa-list-ol"></i> Important Topics</h6>
+                        <ul>
+                            ${resources.topics.map(topic => `<li>${topic}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="resource-item">
+                        <h6><i class="fas fa-flash"></i> Flashcards</h6>
+                        <ul>
+                            ${resources.flashcards.map(card => `<li>${card}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="resource-item">
+                        <h6><i class="fas fa-file-alt"></i> Worksheets</h6>
+                        <ul>
+                            ${resources.worksheets.map(worksheet => `<li>${worksheet}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="resource-item">
+                        <h6><i class="fas fa-clipboard-check"></i> Mock Practice</h6>
+                        <ul>
+                            ${resources.mockPractice.map(practice => `<li>${practice}</li>`).join('')}
+                        </ul>
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
+        `;
+    } catch (error) {
+        console.error('Error generating subject resources:', error);
+        return `
+            <div class="subject-resources">
+                <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
+                <div class="resource-grid">
+                    <div class="resource-item">
+                        <h6><i class="fas fa-list-ol"></i> Important Topics</h6>
+                        <ul>
+                            <li>Fundamental concepts</li>
+                            <li>Key principles</li>
+                            <li>Important theories</li>
+                            <li>Core applications</li>
+                        </ul>
+                    </div>
+                    <div class="resource-item">
+                        <h6><i class="fas fa-flash"></i> Flashcards</h6>
+                        <ul>
+                            <li>Key terms</li>
+                            <li>Important concepts</li>
+                            <li>Formulas and rules</li>
+                            <li>Problem-solving steps</li>
+                        </ul>
+                    </div>
+                    <div class="resource-item">
+                        <h6><i class="fas fa-file-alt"></i> Worksheets</h6>
+                        <ul>
+                            <li>Practice exercises</li>
+                            <li>Review sheets</li>
+                            <li>Sample problems</li>
+                            <li>Concept applications</li>
+                        </ul>
+                    </div>
+                    <div class="resource-item">
+                        <h6><i class="fas fa-clipboard-check"></i> Mock Practice</h6>
+                        <ul>
+                            <li>Practice tests</li>
+                            <li>Mock exams</li>
+                            <li>Skill assessments</li>
+                            <li>Performance tracking</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 }
 
-// Get subject-specific resources
-function getSubjectResources(subjectName) {
-    const resourceMap = {
-        'Mathematics': {
-            topics: ['Algebra', 'Geometry', 'Trigonometry', 'Calculus', 'Statistics'],
-            flashcards: ['Formula cards', 'Problem-solving steps', 'Key concepts', 'Common mistakes'],
-            worksheets: ['Practice problems', 'Previous year questions', 'Sample papers', 'Revision sheets'],
-            mockPractice: ['Mock tests', 'Timed practice', 'Error analysis', 'Performance tracking']
-        },
-        'Science': {
-            topics: ['Physics concepts', 'Chemistry reactions', 'Biology systems', 'Scientific method'],
-            flashcards: ['Scientific terms', 'Formulas', 'Processes', 'Definitions'],
-            worksheets: ['Lab reports', 'Problem sets', 'Concept maps', 'Review sheets'],
-            mockPractice: ['Science quizzes', 'Experiment analysis', 'Concept application', 'Test simulations']
-        },
-        'English': {
-            topics: ['Grammar rules', 'Literature analysis', 'Writing skills', 'Comprehension'],
-            flashcards: ['Vocabulary words', 'Grammar rules', 'Literary devices', 'Writing tips'],
-            worksheets: ['Grammar exercises', 'Essay prompts', 'Reading comprehension', 'Writing practice'],
-            mockPractice: ['Writing tests', 'Reading tests', 'Grammar quizzes', 'Speaking practice']
-        },
-        'Social Science': {
-            topics: ['History events', 'Geography concepts', 'Civics principles', 'Economics basics'],
-            flashcards: ['Historical dates', 'Geographic facts', 'Government structure', 'Economic terms'],
-            worksheets: ['Map exercises', 'Timeline activities', 'Case studies', 'Analysis sheets'],
-            mockPractice: ['History quizzes', 'Geography tests', 'Civics assessments', 'Economics problems']
-        },
-        'Physics': {
-            topics: ['Mechanics', 'Thermodynamics', 'Electromagnetism', 'Optics', 'Modern Physics'],
-            flashcards: ['Physics formulas', 'Laws and principles', 'Units and dimensions', 'Problem-solving steps'],
-            worksheets: ['Numerical problems', 'Conceptual questions', 'Lab exercises', 'Derivation practice'],
-            mockPractice: ['Physics tests', 'Numerical practice', 'Concept application', 'Problem-solving drills']
-        },
-        'Chemistry': {
-            topics: ['Organic Chemistry', 'Inorganic Chemistry', 'Physical Chemistry', 'Chemical reactions'],
-            flashcards: ['Chemical formulas', 'Reaction mechanisms', 'Periodic table', 'Chemical properties'],
-            worksheets: ['Balancing equations', 'Stoichiometry problems', 'Lab procedures', 'Chemical analysis'],
-            mockPractice: ['Chemistry tests', 'Reaction practice', 'Problem solving', 'Concept application']
-        },
-        'Biology': {
-            topics: ['Cell Biology', 'Genetics', 'Ecology', 'Human Physiology', 'Plant Biology'],
-            flashcards: ['Biological terms', 'Processes and cycles', 'Classification', 'Anatomy diagrams'],
-            worksheets: ['Diagram labeling', 'Process explanations', 'Case studies', 'Research analysis'],
-            mockPractice: ['Biology tests', 'Diagram practice', 'Concept application', 'Research questions']
-        }
-    };
+// Get subject-specific resources from Gemini API (with caching)
+async function getSubjectResources(subjectName) {
+    console.log('Subject name received:', subjectName);
     
-    return resourceMap[subjectName] || {
+    if (!subjectName || !studentData) {
+        return getFallbackResources();
+    }
+    
+    // Check cache first
+    if (subjectResourcesCache[subjectName]) {
+        console.log('Using cached resources for', subjectName);
+        return subjectResourcesCache[subjectName];
+    }
+    
+    try {
+        const prompt = createSubjectContentPrompt(subjectName);
+        const response = await fetch(GEMINI_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-goog-api-key': GEMINI_API_KEY
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }]
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const generatedText = data.candidates[0].content.parts[0].text;
+        const content = parseSubjectContent(generatedText);
+        
+        // Cache the result
+        subjectResourcesCache[subjectName] = content;
+        console.log('Generated and cached content for', subjectName, ':', content);
+        return content;
+    } catch (error) {
+        console.error('Error generating subject content:', error);
+        return getFallbackResources();
+    }
+}
+
+// Create prompt for subject-specific content generation
+function createSubjectContentPrompt(subjectName) {
+    const studentClass = studentData.class || '10th';
+    const board = studentData.board || 'CBSE';
+    
+    console.log('Creating prompt for:', { subjectName, studentClass, board });
+    
+    return `
+Generate age-appropriate study content for a ${studentClass} student studying ${board} curriculum.
+
+Student Details:
+- Class: ${studentClass}
+- Board: ${board}
+- Subject: ${subjectName}
+
+Please provide ONLY a valid JSON response with exactly 4 categories, each containing 3 items (keep each item short and concise):
+        
+        {
+            "topics": ["3 key topics for ${subjectName} ${studentClass}"],
+            "flashcards": ["3 important concepts to memorize"],
+            "worksheets": ["3 practice exercises"],
+            "mockPractice": ["3 test activities"]
+        }
+        
+        Requirements:
+        - Keep each item short and concise (max 8-10 words per item)
+        - Content appropriate for ${studentClass} ${board} level
+        - Use proper language (Hindi/Marathi for language subjects, English for others)
+        - Focus on most important topics only
+        
+        IMPORTANT: Return ONLY the JSON object, no markdown formatting, no code blocks, no additional text.
+`;
+}
+
+// Parse subject content from Gemini response
+function parseSubjectContent(apiResponse) {
+    try {
+        // Extract JSON from markdown code blocks if present
+        let jsonString = apiResponse.trim();
+        
+        // Remove markdown code block markers
+        if (jsonString.startsWith('```json')) {
+            jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (jsonString.startsWith('```')) {
+            jsonString = jsonString.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        
+        // Clean up any extra text before/after JSON
+        const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            jsonString = jsonMatch[0];
+        }
+        
+        const content = JSON.parse(jsonString);
+        return {
+            topics: content.topics || [],
+            flashcards: content.flashcards || [],
+            worksheets: content.worksheets || [],
+            mockPractice: content.mockPractice || []
+        };
+    } catch (error) {
+        console.error('Error parsing subject content:', error);
+        console.error('Raw response:', apiResponse);
+        return getFallbackResources();
+    }
+}
+
+// Fallback resources when API fails
+function getFallbackResources() {
+    return {
         topics: ['Fundamental concepts', 'Key principles', 'Important theories', 'Core applications'],
         flashcards: ['Key terms', 'Important concepts', 'Formulas and rules', 'Problem-solving steps'],
         worksheets: ['Practice exercises', 'Review sheets', 'Sample problems', 'Concept applications'],
@@ -1374,28 +1500,18 @@ function createWeeklyPlan(weakSubjects) {
             const subjectIndex = dayIndex % weakSubjects.length;
             const subject = weakSubjects[subjectIndex];
             
-            const resources = getSubjectResources(subject.name);
-            
+            // Note: Resources will be loaded asynchronously in display functions
             dayPlan.subjects.push({
                 name: subject.name,
                 currentScore: subject.percentage,
                 targetScore: Math.min(85, subject.percentage + 15),
-                topics: resources.topics.slice(0, 3), // Top 3 important topics
                 duration: '2 hours',
                 priority: 'high',
                 weightage: getTopicWeightage(subject.name)
             });
         }
         
-        // Add revision day (Sunday)
-        if (day === 'Sunday') {
-            dayPlan.subjects.push({
-                name: 'Weekly Revision',
-                topics: ['Review all topics covered this week', 'Practice problems', 'Take mock test'],
-                duration: '1.5 hours',
-                priority: 'medium'
-            });
-        }
+        // Sunday is for rest/revision - no additional subjects needed
         
         plan.days.push(dayPlan);
     });
@@ -1417,11 +1533,28 @@ function createMonthlyPlan(weakSubjects) {
             focusSubjects: []
         };
         
-        // Assign subjects to this week
-        const subjectsPerWeek = Math.ceil(weakSubjects.length / 4);
-        const startIndex = (week - 1) * subjectsPerWeek;
-        const endIndex = Math.min(startIndex + subjectsPerWeek, weakSubjects.length);
-        weekPlan.focusSubjects = weakSubjects.slice(startIndex, endIndex);
+        // Assign subjects to this week (ensure all weeks get at least one subject)
+        if (weakSubjects.length <= 4) {
+            // If 4 or fewer subjects, assign one subject per week
+            if (week <= weakSubjects.length) {
+                weekPlan.focusSubjects = [weakSubjects[week - 1]];
+            } else {
+                // For weeks beyond available subjects, cycle through subjects
+                const subjectIndex = (week - 1) % weakSubjects.length;
+                weekPlan.focusSubjects = [weakSubjects[subjectIndex]];
+            }
+        } else {
+            // If more than 4 subjects, distribute evenly
+            const subjectsPerWeek = Math.ceil(weakSubjects.length / 4);
+            const startIndex = (week - 1) * subjectsPerWeek;
+            const endIndex = Math.min(startIndex + subjectsPerWeek, weakSubjects.length);
+            weekPlan.focusSubjects = weakSubjects.slice(startIndex, endIndex);
+        }
+        
+        console.log(`Week ${week}:`, {
+            totalSubjects: weakSubjects.length,
+            focusSubjects: weekPlan.focusSubjects.map(s => s.name)
+        });
         
         // Create daily schedule (Monday to Sunday)
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -1438,28 +1571,18 @@ function createMonthlyPlan(weakSubjects) {
                 const subjectIndex = dayIndex % weekPlan.focusSubjects.length;
                 const subject = weekPlan.focusSubjects[subjectIndex];
                 
-                const resources = getSubjectResources(subject.name);
-                
+                // Note: Resources will be loaded asynchronously in display functions
                 dayPlan.subjects.push({
                     name: subject.name,
                     currentScore: subject.percentage,
                     targetScore: Math.min(85, subject.percentage + 15),
-                    topics: resources.topics.slice(0, 2), // Top 2 important topics per day
                     duration: '1.5 hours',
                     priority: 'high',
                     weightage: getTopicWeightage(subject.name)
                 });
             }
             
-            // Add revision day (Sunday)
-            if (day === 'Sunday') {
-                dayPlan.subjects.push({
-                    name: 'Weekly Revision',
-                    topics: ['Review all topics covered this week', 'Practice problems', 'Take mock test'],
-                    duration: '2 hours',
-                    priority: 'medium'
-                });
-            }
+            // Sunday is for rest/revision - no additional subjects needed
             
             weekPlan.days.push(dayPlan);
         });
@@ -1590,7 +1713,7 @@ function displayWeeklyView(container) {
                         </div>
                         <div class="day-content">
                             ${day.subjects.map(subject => `
-                                <div class="subject-schedule">
+                                <div class="subject-schedule" data-subject="${subject.name}">
                                     <div class="subject-info">
                                         <h6>${subject.name}</h6>
                                         ${subject.currentScore ? `
@@ -1600,14 +1723,8 @@ function displayWeeklyView(container) {
                                             </div>
                                         ` : ''}
                                     </div>
-                                    <div class="topics">
-                                        ${subject.topics.map(topic => `
-                                            <span class="topic-tag">
-                                                ${topic}
-                                                ${subject.weightage && subject.weightage[topic] ? 
-                                                    `<span class="weightage">(${subject.weightage[topic]}%)</span>` : ''}
-                                            </span>
-                                        `).join('')}
+                                    <div class="loading-content">
+                                        <!-- Content will be loaded from cache -->
                                     </div>
                                     <div class="duration">
                                         <i class="fas fa-clock"></i> ${subject.duration}
@@ -1620,6 +1737,91 @@ function displayWeeklyView(container) {
             </div>
         </div>
     `;
+    
+    // Load resources for each subject (using cached data - no API calls)
+    for (const day of studyCalendar.days) {
+        for (const subject of day.subjects) {
+            if (subject.name !== 'Weekly Revision') {
+                loadSubjectResources(subject.name);
+            }
+        }
+    }
+}
+
+// Load subject resources for recommendations
+async function loadRecommendationSubjectResources(subjectName) {
+    try {
+        const resources = await getSubjectResources(subjectName);
+        const loadingElement = document.querySelector(`[data-subject="${subjectName}"]`);
+        
+        if (loadingElement) {
+            loadingElement.innerHTML = `
+                <div class="subject-resources">
+                    <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
+                    <div class="resource-grid">
+                        <div class="resource-item">
+                            <h6><i class="fas fa-list-ol"></i> Important Topics</h6>
+                            <ul>
+                                ${resources.topics.map(topic => `<li>${topic}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="resource-item">
+                            <h6><i class="fas fa-flash"></i> Flashcards</h6>
+                            <ul>
+                                ${resources.flashcards.map(card => `<li>${card}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="resource-item">
+                            <h6><i class="fas fa-file-alt"></i> Worksheets</h6>
+                            <ul>
+                                ${resources.worksheets.map(worksheet => `<li>${worksheet}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="resource-item">
+                            <h6><i class="fas fa-clipboard-check"></i> Mock Practice</h6>
+                            <ul>
+                                ${resources.mockPractice.map(practice => `<li>${practice}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading recommendation resources for', subjectName, ':', error);
+    }
+}
+
+// Load subject resources and update the display (for calendar - uses cached data)
+function loadSubjectResources(subjectName) {
+    try {
+        // Use cached resources if available, otherwise show fallback
+        const resources = subjectResourcesCache[subjectName] || getFallbackResources();
+        const subjectElements = document.querySelectorAll(`[data-subject="${subjectName}"]`);
+        
+        console.log(`Loading resources for ${subjectName}:`, {
+            hasCache: !!subjectResourcesCache[subjectName],
+            elementsFound: subjectElements.length,
+            resources: resources
+        });
+        
+        subjectElements.forEach(element => {
+            const loadingElement = element.querySelector('.loading-content');
+            if (loadingElement) {
+                loadingElement.innerHTML = `
+                    <div class="study-content">
+                        <div class="content-items">
+                            ${resources.topics.slice(0, 3).map(topic => `
+                                <span class="content-tag topic-tag">${topic}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        });
+    } catch (error) {
+        console.error('Error loading resources for', subjectName, ':', error);
+    }
 }
 
 function displayMonthlyView(container) {
@@ -1653,7 +1855,7 @@ function displayMonthlyView(container) {
                                     </div>
                                     <div class="day-content">
                                         ${day.subjects.map(subject => `
-                                            <div class="subject-schedule">
+                                            <div class="subject-schedule" data-subject="${subject.name}">
                                                 <div class="subject-info">
                                                     <h6>${subject.name}</h6>
                                                     ${subject.currentScore ? `
@@ -1663,14 +1865,8 @@ function displayMonthlyView(container) {
                                                         </div>
                                                     ` : ''}
                                                 </div>
-                                                <div class="topics">
-                                                    ${subject.topics.map(topic => `
-                                                        <span class="topic-tag">
-                                                            ${topic}
-                                                            ${subject.weightage && subject.weightage[topic] ? 
-                                                                `<span class="weightage">(${subject.weightage[topic]}%)</span>` : ''}
-                                                        </span>
-                                                    `).join('')}
+                                                <div class="loading-content">
+                                                    <!-- Content will be loaded from cache -->
                                                 </div>
                                                 <div class="duration">
                                                     <i class="fas fa-clock"></i> ${subject.duration}
@@ -1686,6 +1882,17 @@ function displayMonthlyView(container) {
             </div>
         </div>
     `;
+    
+    // Load resources for each subject (using cached data - no API calls)
+    for (const week of studyCalendar.weeks) {
+        for (const day of week.days) {
+            for (const subject of day.subjects) {
+                if (subject.name !== 'Weekly Revision') {
+                    loadSubjectResources(subject.name);
+                }
+            }
+        }
+    }
 }
 
 // Utility Functions
@@ -1772,6 +1979,11 @@ function addStudyCalendarSection() {
         `;
         dashboard.appendChild(calendarSection);
     }
+}
+
+// Toggle calendar view function (wrapper for generateStudyCalendar)
+function toggleCalendarView(viewType) {
+    generateStudyCalendar(viewType);
 }
 
 // Export functions for global access

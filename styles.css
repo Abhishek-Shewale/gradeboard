@@ -118,6 +118,10 @@ body {
 }
 
 /* Section Styles */
+.section-title-text{
+    color: var(--primary-color);
+}
+
 .section-title {
     text-align: center;
     font-size: 2.25rem;
@@ -125,6 +129,15 @@ body {
     margin-bottom: 48px;
     color: var(--text-color);
     line-height: 1.3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.section-title i {
+    color: var(--primary-color);
+    font-size: 2rem;
 }
 
 /* Input Section */
@@ -1320,6 +1333,12 @@ body {
     
     .section-title {
         font-size: 1.875rem;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .section-title i {
+        font-size: 1.5rem;
     }
     
     .btn {
@@ -1338,4 +1357,69 @@ body {
     .recommendations-section {
         padding: 32px;
     }
+}
+
+/* Study Calendar Content Styles */
+.study-content {
+    margin-top: 12px;
+}
+
+.content-section {
+    margin-bottom: 12px;
+}
+
+.content-section h7 {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.content-section h7 i {
+    font-size: 0.7rem;
+}
+
+.content-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.content-tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    line-height: 1.2;
+    max-width: 100%;
+    word-wrap: break-word;
+}
+
+.topic-tag {
+    background: rgba(124, 58, 237, 0.1);
+    color: var(--primary-color);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.flashcard-tag {
+    background: rgba(34, 197, 94, 0.1);
+    color: #059669;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.worksheet-tag {
+    background: rgba(249, 115, 22, 0.1);
+    color: #ea580c;
+    border: 1px solid rgba(249, 115, 22, 0.2);
+}
+
+.practice-tag {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.2);
 }
