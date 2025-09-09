@@ -1075,7 +1075,7 @@ body {
 /* Subject Resources */
 .subject-resources {
     margin-top: 24px;
-    padding: 24px;
+   
     background: var(--light-gray);
     border-radius: var(--border-radius);
     border: 1px solid var(--medium-gray);
@@ -1296,9 +1296,7 @@ body {
     font-size: 0.9rem;
 }
 
-.improvement-strategies {
-    margin-top: 16px;
-}
+
 
 .improvement-strategies h5 {
     color: var(--text-color);
