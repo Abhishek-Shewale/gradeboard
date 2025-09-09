@@ -2,26 +2,28 @@
 // API Configuration
 const GEMINI_API_KEY = 'AIzaSyBIbJ3GZqfZdVlzDgIezdgwrKp51s62jv0';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const SYLLABUS_API_URL = 'https://studentaiadmin.vercel.app/api/public-syllabus';
 
 // Global Variables
 let studentData = null;
 let charts = {};
 let subjectResourcesCache = {}; // Cache for subject resources
+let syllabusData = null; // Store fetched syllabus data
 
-// Subject configurations for different classes
+// Subject configurations for different classes (fallback when API data is not available)
 const subjectConfigs = {
-    '1st': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
-    '2nd': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
-    '3rd': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
-    '4th': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
-    '5th': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
-    '6th': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi'],
-    '7th': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi'],
-    '8th': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi'],
-    '9th': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi', 'Computer Science'],
-    '10th': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi', 'Computer Science'],
-    '11th': ['English', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science'],
-    '12th': ['English', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science']
+    '1': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
+    '2': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
+    '3': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
+    '4': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
+    '5': ['English', 'Mathematics', 'Environmental Studies', 'Hindi'],
+    '6': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi'],
+    '7': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi'],
+    '8': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi'],
+    '9': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi', 'Computer Science'],
+    '10': ['English', 'Mathematics', 'Science', 'Social Science', 'Hindi', 'Computer Science'],
+    '11': ['English', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science'],
+    '12': ['English', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science']
 };
 
 // Initialize the application
@@ -34,16 +36,22 @@ function initializeApp() {
     setupFileUpload();
     setupClassSelection();
     
- 
+    // Initialize upload area as disabled
+    const uploadArea = document.getElementById('upload-area');
+    if (uploadArea) {
+        uploadArea.classList.add('disabled');
+    }
     
-    showMessage('Welcome to Gradebook! Enter your child\'s grades to get AI-powered insights.', 'success');
+    // Pre-load sample subjects in manual entry section for instant access
+    preloadSampleSubjects();
+    
 }
 
 // Load Demo Data
 function loadDemoData() {
     const demoData = {
-        class: '10th',
-        board: 'CBSE',
+        class: '10',
+        board: 'cbse',
         testType: 'Mid-term',
         date: new Date().toISOString().split('T')[0],
         subjects: [
@@ -57,7 +65,6 @@ function loadDemoData() {
     };
     
     processStudentData(demoData);
-    showMessage('Demo data loaded! This shows how the system works with sample grades.', 'success');
 }
 
 // Event Listeners Setup
@@ -68,10 +75,14 @@ function setupEventListeners() {
         manualForm.addEventListener('submit', handleManualEntry);
     }
 
-    // Class selection change
+    // Shared class and board selection
     const classSelect = document.getElementById('class-select');
+    const boardSelect = document.getElementById('board-select');
     if (classSelect) {
-        classSelect.addEventListener('change', handleClassChange);
+        classSelect.addEventListener('change', handleSharedSelection);
+    }
+    if (boardSelect) {
+        boardSelect.addEventListener('change', handleSharedSelection);
     }
 
     // File input change
@@ -81,13 +92,118 @@ function setupEventListeners() {
     }
 }
 
+// Pre-load Sample Subjects on Page Load
+function preloadSampleSubjects() {
+    // Only preload if manual entry section is not visible
+    const manualEntrySection = document.getElementById('manual-entry-section');
+    if (manualEntrySection && manualEntrySection.style.display !== 'none') {
+        console.log('Manual entry section is visible, skipping preload');
+        return;
+    }
+    
+    // Load common subjects that work for most classes
+    const commonSubjects = ['Mathematics', 'Science', 'English', 'Social Science', 'Hindi'];
+    
+    console.log('Preloading sample subjects:', commonSubjects);
+    
+    // Generate subject inputs immediately in the hidden manual entry section
+    generateSubjectInputs(commonSubjects);
+}
+
+// Load Subjects Immediately (No API Wait)
+function loadSubjectsImmediately(classValue) {
+    // Get subjects from predefined configs immediately
+    const subjects = subjectConfigs[classValue] || ['Mathematics', 'Science', 'English', 'Social Science'];
+    
+    console.log('Loading subjects for class:', classValue, 'Subjects:', subjects);
+    
+    // Generate subject inputs immediately
+    generateSubjectInputs(subjects);
+}
+
+// Clear Dashboard and Reset State Function
+function clearDashboardAndResetState() {
+    // Clear global student data
+    studentData = null;
+    
+    // Hide dashboard
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard) {
+        dashboard.style.display = 'none';
+    }
+    
+    // Clear dashboard content
+    clearDashboardContent();
+    
+    // Clear any existing charts
+    if (charts.performance) {
+        charts.performance.destroy();
+        charts.performance = null;
+    }
+    if (charts.subject) {
+        charts.subject.destroy();
+        charts.subject = null;
+    }
+    
+    // Clear file input
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    
+    // Reset upload progress
+    const uploadProgress = document.getElementById('upload-progress');
+    const progressFill = document.getElementById('progress-fill');
+    if (uploadProgress) {
+        uploadProgress.style.display = 'none';
+    }
+    if (progressFill) {
+        progressFill.style.width = '0%';
+    }
+    
+    // Show upload area
+    const uploadArea = document.getElementById('upload-area');
+    if (uploadArea) {
+        uploadArea.style.display = 'block';
+    }
+}
+
 // Navigation Functions
 function showManualEntry() {
+    // Check if class and board are selected first
+    const classValue = document.getElementById('class-select').value;
+    const boardValue = document.getElementById('board-select').value;
+    
+    if (!classValue || !boardValue) {
+        // Show validation errors
+        validateClassAndBoard();
+        
+        // Show user-friendly message
+        showMessage('Please select both class and board before entering grades manually.', 'error');
+        
+        // Scroll to the selection form to make it visible
+        setTimeout(() => {
+            document.querySelector('.shared-selection-form').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }, 100);
+        
+        return;
+    }
+    
+    // Clear dashboard and reset state
+    clearDashboardAndResetState();
+    
     // Hide upload section
     document.querySelector('.upload-section').style.display = 'none';
     
-    // Show manual entry section
+    // Update subjects to match selected class BEFORE showing the section
+    loadSubjectsImmediately(classValue);
+    
+    // Show manual entry section after subjects are loaded
     document.getElementById('manual-entry-section').style.display = 'block';
+    
     
     // Scroll to manual entry section
     setTimeout(() => {
@@ -99,6 +215,9 @@ function showManualEntry() {
 }
 
 function showUploadSection() {
+    // Clear dashboard and reset state
+    clearDashboardAndResetState();
+    
     // Hide manual entry section
     document.getElementById('manual-entry-section').style.display = 'none';
     
@@ -121,9 +240,47 @@ function setupFileUpload() {
     const uploadLink = document.querySelector('.upload-link');
 
     // Click to upload
-    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('click', () => {
+        // Check if upload area is disabled
+        if (uploadArea.classList.contains('disabled')) {
+            // Show validation errors
+            validateClassAndBoard();
+            
+            // Show user-friendly message
+            showMessage('Please select both class and board before uploading your marksheet.', 'error');
+            
+            // Scroll to the selection form to make it visible
+            setTimeout(() => {
+                document.querySelector('.shared-selection-form').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }, 100);
+            
+            return;
+        }
+        fileInput.click();
+    });
     uploadLink.addEventListener('click', (e) => {
         e.stopPropagation();
+        // Check if upload area is disabled
+        if (uploadArea.classList.contains('disabled')) {
+            // Show validation errors
+            validateClassAndBoard();
+            
+            // Show user-friendly message
+            showMessage('Please select both class and board before uploading your marksheet.', 'error');
+            
+            // Scroll to the selection form to make it visible
+            setTimeout(() => {
+                document.querySelector('.shared-selection-form').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }, 100);
+            
+            return;
+        }
         fileInput.click();
     });
 
@@ -147,10 +304,162 @@ function setupFileUpload() {
     });
 }
 
+// Fetch Syllabus Data from API
+async function fetchSyllabusData(board, grade) {
+    try {
+        console.log(`Fetching syllabus data for board: ${board}, grade: ${grade}`);
+       
+        
+        const response = await fetch(`${SYLLABUS_API_URL}?board=${board}&grade=${grade}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Syllabus data fetched successfully:', data);
+        
+        // Log detailed subject information
+        if (data.board && data.board.subjects) {
+            console.log('Subjects found in syllabus:');
+            data.board.subjects.forEach((subject, index) => {
+                console.log(`${index + 1}. ${subject.name} - ${subject.chapters?.length || 0} chapters`);
+                if (subject.chapters) {
+                    subject.chapters.forEach((chapter, chIndex) => {
+                        console.log(`   ${chIndex + 1}. ${chapter.name} (${chapter.marks || 'no marks'})`);
+                    });
+                }
+            });
+        }
+        
+        // Store the fetched data globally
+        syllabusData = data;
+        
+        
+        return data;
+    } catch (error) {
+        console.error('Error fetching syllabus data:', error);
+        return null;
+    }
+}
+
+// Show Error Message
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorElement = document.getElementById(fieldId + '-error');
+    
+    console.log('showFieldError called:', { fieldId, message });
+    console.log('Field found:', !!field, 'Error element found:', !!errorElement);
+    
+    if (field && errorElement) {
+        // Add error class to field
+        field.classList.add('error');
+        
+        // Show error message
+        errorElement.style.display = 'flex';
+        const spanElement = errorElement.querySelector('span');
+        if (spanElement) {
+            spanElement.textContent = message;
+        }
+        
+        console.log('Error message should be visible now');
+    } else {
+        console.error('Could not find field or error element:', { fieldId, field: !!field, errorElement: !!errorElement });
+    }
+}
+
+// Hide Error Message
+function hideFieldError(fieldId) {
+    const field = document.getElementById(fieldId);
+    const errorElement = document.getElementById(fieldId + '-error');
+    
+    if (field && errorElement) {
+        // Remove error class from field
+        field.classList.remove('error');
+        
+        // Hide error message
+        errorElement.style.display = 'none';
+    }
+}
+
+// Test function to manually show errors (for debugging)
+function testErrorMessages() {
+    console.log('Testing error messages...');
+    showFieldError('class-select', 'Test class error message');
+    showFieldError('board-select', 'Test board error message');
+}
+
+// Validate Class and Board Selection
+function validateClassAndBoard() {
+    const classValue = document.getElementById('class-select').value;
+    const boardValue = document.getElementById('board-select').value;
+    let isValid = true;
+    
+    console.log('validateClassAndBoard called with:', { classValue, boardValue });
+    
+    // Clear previous errors
+    hideFieldError('class-select');
+    hideFieldError('board-select');
+    
+    // Validate class
+    if (!classValue) {
+        console.log('Showing class error');
+        showFieldError('class-select', 'Please select a class from the list.');
+        isValid = false;
+    }
+    
+    // Validate board
+    if (!boardValue) {
+        console.log('Showing board error');
+        showFieldError('board-select', 'Please select a board from the list.');
+        isValid = false;
+    }
+    
+    console.log('Validation complete, isValid:', isValid);
+    return isValid;
+}
+
+// Handle Shared Selection
+async function handleSharedSelection() {
+    const classValue = document.getElementById('class-select').value;
+    const boardValue = document.getElementById('board-select').value;
+    const uploadArea = document.getElementById('upload-area');
+    
+    // Clear any existing errors when user makes a selection
+    if (classValue) {
+        hideFieldError('class-select');
+    }
+    if (boardValue) {
+        hideFieldError('board-select');
+    }
+    
+    if (classValue && boardValue) {
+        // Both class and board are selected, enable upload area
+        uploadArea.classList.remove('disabled');
+        
+        // Fetch syllabus data from API
+        await fetchSyllabusData(boardValue, classValue);
+                
+        // Update manual entry subjects if manual entry is visible (immediate, no API wait)
+        if (document.getElementById('manual-entry-section').style.display !== 'none') {
+            console.log('Updating subjects in manual entry section for class:', classValue);
+            loadSubjectsImmediately(classValue);
+        }
+    } else {
+        // Disable upload area if either is not selected
+        uploadArea.classList.add('disabled');
+    }
+}
+
 // File Upload Handler
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
+
+    // Validate class and board selection first
+    if (!validateClassAndBoard()) {
+        return;
+    }
 
     // Validate file type
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
@@ -209,12 +518,10 @@ function simulateOCR(file) {
                     const subjectCount = extractedData.subjects.length;
                     const extractedSubjects = extractedData.subjects.map(s => s.name).join(', ');
                     
-                    showMessage(`Successfully extracted ${subjectCount} subjects: ${extractedSubjects}`, 'success');
                     
                     processStudentData(extractedData);
                 } catch (error) {
                     console.error('Error processing image:', error);
-                    showMessage('Error processing image. Using sample data instead.', 'warning');
                     
                     // Use fallback data
                     const fallbackData = getMockMarksheetData();
@@ -313,10 +620,13 @@ async function extractDataFromImage(file) {
             throw new Error('Failed to parse JSON response from API');
         }
         
-        // Process the extracted data
+        // Process the extracted data - use selected class and board if available
+        const selectedClass = document.getElementById('class-select').value;
+        const selectedBoard = document.getElementById('board-select').value;
+        
         return {
-            class: extractedData.class,
-            board: extractedData.board,
+            class: selectedClass || extractedData.class,
+            board: selectedBoard || extractedData.board,
             testType: extractedData.testType,
             date: new Date().toISOString().split('T')[0],
             subjects: extractedData.subjects.map(subject => ({
@@ -350,69 +660,42 @@ function fileToBase64(file) {
 
 // Fallback mock data function
 function getMockMarksheetData() {
-    const marksheetTypes = [
-        {
-            class: '10th',
-            board: 'CBSE',
-            testType: 'Mid-term',
-            subjects: [
-                { name: 'Mathematics', marks: 78, total: 100 },
-                { name: 'Science', marks: 85, total: 100 },
-                { name: 'English', marks: 72, total: 100 },
-                { name: 'Social Science', marks: 68, total: 100 },
-                { name: 'Hindi', marks: 80, total: 100 },
-                { name: 'Computer Science', marks: 90, total: 100 }
-            ]
-        },
-        {
-            class: '12th',
-            board: 'CBSE',
-            testType: 'Final',
-            subjects: [
-                { name: 'Mathematics', marks: 65, total: 100 },
-                { name: 'Physics', marks: 72, total: 100 },
-                { name: 'Chemistry', marks: 78, total: 100 },
-                { name: 'Biology', marks: 82, total: 100 },
-                { name: 'English', marks: 75, total: 100 },
-                { name: 'Computer Science', marks: 88, total: 100 }
-            ]
-        },
-        {
-            class: '9th',
-            board: 'ICSE',
-            testType: 'Unit Test',
-            subjects: [
-                { name: 'Mathematics', marks: 70, total: 100 },
-                { name: 'Science', marks: 76, total: 100 },
-                { name: 'English', marks: 84, total: 100 },
-                { name: 'Social Studies', marks: 69, total: 100 },
-                { name: 'Hindi', marks: 77, total: 100 },
-                { name: 'Computer Applications', marks: 91, total: 100 }
-            ]
-        }
-    ];
+    // Get selected class and board from shared form
+    const selectedClass = document.getElementById('class-select').value;
+    const selectedBoard = document.getElementById('board-select').value;
     
-    const selectedMarksheet = marksheetTypes[Math.floor(Math.random() * marksheetTypes.length)];
+    // Use selected values or fallback to defaults
+    const classValue = selectedClass || '10';
+    const boardValue = selectedBoard || 'cbse';
+    
+    // Get subjects for the selected class
+    const subjects = subjectConfigs[classValue] || ['Mathematics', 'Science', 'English'];
+    
+    // Generate mock marks for each subject
+    const subjectsWithMarks = subjects.map(subject => {
+        const marks = Math.floor(Math.random() * 30) + 60; // 60-90 range
+        return {
+            name: subject,
+            marks: marks,
+            total: 100,
+            percentage: marks,
+            grade: calculateGrade(marks)
+        };
+    });
     
     return {
-        class: selectedMarksheet.class,
-        board: selectedMarksheet.board,
-        testType: selectedMarksheet.testType,
+        class: classValue,
+        board: boardValue,
+        testType: 'Mid-term',
         date: new Date().toISOString().split('T')[0],
-        subjects: selectedMarksheet.subjects.map(subject => ({
-            name: subject.name,
-            marks: subject.marks,
-            total: subject.total,
-            percentage: (subject.marks / subject.total) * 100,
-            grade: calculateGrade((subject.marks / subject.total) * 100)
-        }))
+        subjects: subjectsWithMarks
     };
 }
 
 // Generate Mock Grades (kept for demo button)
 function generateMockGrades() {
-    const classes = ['9th', '10th', '11th', '12th'];
-    const boards = ['CBSE', 'ICSE', 'State Board'];
+    const classes = ['9', '10', '11', '12'];
+    const boards = ['cbse', 'ap', 'telangana'];
     const testTypes = ['Unit Test', 'Mid-term', 'Final'];
     
     const selectedClass = classes[Math.floor(Math.random() * classes.length)];
@@ -448,15 +731,40 @@ function setupClassSelection() {
 
 function handleClassChange() {
     const selectedClass = document.getElementById('class-select').value;
-    if (selectedClass && subjectConfigs[selectedClass]) {
-        generateSubjectInputs(subjectConfigs[selectedClass]);
+    const selectedBoard = document.getElementById('board-select').value;
+    
+    if (selectedClass && selectedBoard) {
+        // Use syllabus data from API if available, otherwise fallback to subjectConfigs
+        let subjects = [];
+        
+        if (syllabusData && syllabusData.board && syllabusData.board.subjects) {
+            // Extract subject names from API data
+            subjects = syllabusData.board.subjects.map(subject => subject.name);
+        } else if (subjectConfigs[selectedClass]) {
+            // Fallback to predefined subjects
+            subjects = subjectConfigs[selectedClass];
+        }
+        
+        if (subjects.length > 0) {
+            generateSubjectInputs(subjects);
+        }
     }
 }
 
 // Generate Subject Input Fields
 function generateSubjectInputs(subjects) {
     const container = document.getElementById('subjects-container');
+    
+    // Clear container completely to prevent duplicates
     container.innerHTML = '';
+    
+    // Validate subjects array
+    if (!subjects || !Array.isArray(subjects) || subjects.length === 0) {
+        console.warn('No subjects provided to generateSubjectInputs');
+        return;
+    }
+    
+    console.log('Generating subject inputs for:', subjects);
     
     // Add header with add subject button
     const headerDiv = document.createElement('div');
@@ -468,6 +776,8 @@ function generateSubjectInputs(subjects) {
         </button>
     `;
     container.appendChild(headerDiv);
+    
+   
     
     // Add subjects
     subjects.forEach((subject, index) => {
@@ -504,11 +814,11 @@ function addSubjectInput(subjectName = '', index = null) {
         </div>
         <div class="form-group">
             <input type="number" name="subject_marks_${index || Date.now()}" 
-                   placeholder="Marks" min="0" max="1000" required>
+                   placeholder="Your Marks" min="0" max="100" step="0.1" required>
         </div>
         <div class="form-group">
             <input type="number" name="subject_total_${index || Date.now()}" 
-                   placeholder="Total" min="1" value="100" required>
+                   placeholder="Total Marks" min="1" value="100" required>
         </div>
         <div class="form-group">
             <button type="button" class="btn btn-danger btn-small" onclick="removeSubject(this)">
@@ -536,20 +846,19 @@ function removeSubject(button) {
 function handleManualEntry(event) {
     event.preventDefault();
     
-    const formData = new FormData(event.target);
-    const classValue = formData.get('class');
-    const boardValue = formData.get('board');
-    const testTypeValue = formData.get('testType');
-    
-    if (!classValue || !boardValue || !testTypeValue) {
-        showMessage('Please fill in all required fields.', 'error');
+    // Validate class and board selection first
+    if (!validateClassAndBoard()) {
         return;
     }
+    
+    // Get class and board from shared dropdowns
+    const classValue = document.getElementById('class-select').value;
+    const boardValue = document.getElementById('board-select').value;
     
     const studentData = {
         class: classValue,
         board: boardValue,
-        testType: testTypeValue,
+        testType: 'Manual Entry',
         date: new Date().toISOString().split('T')[0],
         subjects: []
     };
@@ -560,8 +869,8 @@ function handleManualEntry(event) {
     
     subjectItems.forEach(item => {
         const nameInput = item.querySelector('input[type="text"]');
-        const marksInput = item.querySelector('input[placeholder="Marks"]');
-        const totalInput = item.querySelector('input[placeholder="Total"]');
+        const marksInput = item.querySelector('input[placeholder="Your Marks"]');
+        const totalInput = item.querySelector('input[placeholder="Total Marks"]');
         
         if (nameInput && marksInput && totalInput) {
             const subjectName = nameInput.value.trim();
@@ -587,12 +896,8 @@ function handleManualEntry(event) {
         return;
     }
     
-    // Show extracted data summary (same as uploaded images)
-    showExtractedDataSummary(studentData);
-    
     // Process the data the same way as uploaded images
     processStudentData(studentData);
-    showMessage('Grades entered successfully!', 'success');
 }
 
 // Process Student Data
@@ -1117,43 +1422,64 @@ function displayRecommendations(recommendations) {
             <p>${recommendations.overallAssessment || 'Your child shows potential for improvement.'}</p>
         </div>
         
-        ${recommendations.weakSubjects ? recommendations.weakSubjects.map(subject => {
-            // Find the corresponding subject in studentData to get accurate score and grade
-            const originalSubject = studentData.subjects.find(s => 
-                s.name === (subject.subject || subject.name) || 
-                s.name.toLowerCase() === (subject.subject || subject.name || '').toLowerCase()
-            );
+        ${studentData.subjects.map(subject => {
+            const marks = subject.percentage;
+            const isWeak = marks < 70;
+            const attentionText = isWeak ? 'Needs Attention' : 'Excellence Suggestions';
+            const iconClass = isWeak ? 'fas fa-exclamation-triangle' : 'fas fa-star';
+            const accordionId = `accordion-${subject.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
             
             return `
-            <div class="recommendation-item">
-                <h4><i class="fas fa-exclamation-triangle"></i> ${subject.subject || subject.name || 'Subject'} - Needs Attention</h4>
-                <div class="subject-details">
-                    <p><strong>Current Score:</strong> ${originalSubject ? originalSubject.percentage.toFixed(1) : (subject.score || subject.percentage || 'N/A')}%</p>
-                    <p><strong>Grade:</strong> ${originalSubject ? originalSubject.grade : (subject.grade || 'N/A')}</p>
+            <div class="recommendation-accordion">
+                <div class="accordion-header" onclick="toggleAccordion('${accordionId}')">
+                    <h4><i class="${iconClass}"></i> ${subject.name} - ${attentionText}</h4>
+                    <div class="accordion-toggle">
+                        <i class="fas fa-chevron-down accordion-icon" id="icon-${accordionId}"></i>
+                    </div>
                 </div>
-                <div class="subject-resources-loading" data-subject="${subject.subject || subject.name}">
-                    <i class="fas fa-spinner fa-spin"></i> Loading study resources...
+                <div class="accordion-content" id="${accordionId}" style="display: none;">
+                    <div class="subject-details">
+                        <p><strong>Current Score:</strong> ${subject.percentage.toFixed(1)}%</p>
+                        <p><strong>Grade:</strong> ${subject.grade}</p>
+                    </div>
+                    <div class="subject-resources-loading" data-subject="${subject.name}">
+                        <i class="fas fa-spinner fa-spin"></i> Loading study resources...
+                    </div>
                 </div>
             </div>
         `;
-        }).join('') : ''}
+        }).join('')}
     `;
     
     // Add study calendar section
     addStudyCalendarSection();
     
-    // Load subject resources asynchronously
-    if (recommendations.weakSubjects) {
-        recommendations.weakSubjects.forEach(async (subject) => {
-            const subjectName = subject.subject || subject.name;
-            if (subjectName) {
-                await loadRecommendationSubjectResources(subjectName);
-            }
-        });
-    }
+    // Debug subject matching
+    debugSubjectMatching();
+    
+    // Load subject resources asynchronously for all subjects
+    studentData.subjects.forEach(async (subject) => {
+        await loadRecommendationSubjectResources(subject.name);
+    });
 }
 
 
+
+// Toggle Accordion Function
+function toggleAccordion(accordionId) {
+    const content = document.getElementById(accordionId);
+    const icon = document.getElementById(`icon-${accordionId}`);
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    } else {
+        content.style.display = 'none';
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+    }
+}
 
 // Fallback Recommendations
 function displayFallbackRecommendations(data) {
@@ -1166,16 +1492,33 @@ function displayFallbackRecommendations(data) {
             <p>Your child has achieved ${performance.overallPercentage}% overall performance. ${performance.overallPercentage >= 80 ? 'Excellent work!' : performance.overallPercentage >= 70 ? 'Good performance with room for improvement.' : 'Focus on improvement strategies.'}</p>
         </div>
         
-        ${performance.weakSubjects.length > 0 ? `
-            <div class="recommendation-item">
-                <h4><i class="fas fa-exclamation-triangle"></i> Subjects Needing Attention</h4>
-                <ul>
-                    ${performance.weakSubjects.map(subject => `
-                        <li><strong>${subject.name}</strong> (${subject.percentage.toFixed(1)}%): Focus on understanding fundamental concepts, practice regularly, and seek additional help if needed.</li>
-                    `).join('')}
-                </ul>
+        ${data.subjects.map(subject => {
+            const marks = subject.percentage;
+            const isWeak = marks < 70;
+            const attentionText = isWeak ? 'Needs Attention' : 'Excellence Suggestions';
+            const iconClass = isWeak ? 'fas fa-exclamation-triangle' : 'fas fa-star';
+            const accordionId = `accordion-${subject.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+            
+            return `
+            <div class="recommendation-accordion">
+                <div class="accordion-header" onclick="toggleAccordion('${accordionId}')">
+                    <h4><i class="${iconClass}"></i> ${subject.name} - ${attentionText}</h4>
+                    <div class="accordion-toggle">
+                        <i class="fas fa-chevron-down accordion-icon" id="icon-${accordionId}"></i>
+                    </div>
+                </div>
+                <div class="accordion-content" id="${accordionId}" style="display: none;">
+                    <div class="subject-details">
+                        <p><strong>Current Score:</strong> ${subject.percentage.toFixed(1)}%</p>
+                        <p><strong>Grade:</strong> ${subject.grade}</p>
+                    </div>
+                    <div class="fallback-recommendation">
+                        <p><strong>${subject.name}</strong> (${subject.percentage.toFixed(1)}%): Focus on understanding fundamental concepts, practice regularly, and seek additional help if needed.</p>
+                    </div>
+                </div>
             </div>
-        ` : ''}
+        `;
+        }).join('')}
     `;
 }
 
@@ -1496,21 +1839,449 @@ function displayWeeklyView(container) {
     }
 }
 
+// Filter out non-academic chapters
+function filterAcademicChapters(chapters) {
+    const nonAcademicKeywords = [
+        'internal assessment', 'practical work', 'practical', 'project work', 'project mark',
+        'project', 'assessment', 'internal', 'practical exam', 'viva', 'oral', 'lab work',
+        'laboratory work', 'field work', 'assignment', 'homework', 'class work',
+        'continuous assessment', 'formative assessment', 'summative assessment',
+        'term work', 'record work', 'journal', 'notebook', 'portfolio'
+    ];
+    
+    return chapters.filter(chapter => {
+        const chapterName = chapter.name.toLowerCase();
+        return !nonAcademicKeywords.some(keyword => chapterName.includes(keyword));
+    });
+}
+
+// Determine chapter importance from syllabus data
+function getChapterImportance(subjectName) {
+    console.log('Getting chapters for subject:', subjectName);
+    console.log('Syllabus data available:', !!syllabusData);
+    console.log('Syllabus subjects:', syllabusData?.board?.subjects?.map(s => s.name));
+    
+    if (!syllabusData || !syllabusData.board || !syllabusData.board.subjects) {
+        console.log('No syllabus data available, using fallback chapters');
+        return getFallbackChapters(subjectName);
+    }
+    
+    // Clean subject name for better matching
+    const cleanSubjectName = subjectName.toLowerCase()
+        .replace(/[&]/g, 'and')
+        .replace(/[()]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    
+    console.log('Cleaned subject name:', cleanSubjectName);
+    
+    // Try multiple matching strategies
+    let subject = null;
+    
+    // 1. Exact match
+    subject = syllabusData.board.subjects.find(s => 
+        s.name.toLowerCase() === subjectName.toLowerCase()
+    );
+    console.log('Exact match result:', subject?.name);
+    
+    // 2. Clean exact match
+    if (!subject) {
+        subject = syllabusData.board.subjects.find(s => {
+            const cleanSyllabusName = s.name.toLowerCase()
+                .replace(/[&]/g, 'and')
+                .replace(/[()]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            return cleanSyllabusName === cleanSubjectName;
+        });
+        console.log('Clean exact match result:', subject?.name);
+    }
+    
+    // 3. Contains match (either direction)
+    if (!subject) {
+        subject = syllabusData.board.subjects.find(s => {
+            const cleanSyllabusName = s.name.toLowerCase()
+                .replace(/[&]/g, 'and')
+                .replace(/[()]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            return cleanSyllabusName.includes(cleanSubjectName) || 
+                   cleanSubjectName.includes(cleanSyllabusName);
+        });
+        console.log('Contains match result:', subject?.name);
+    }
+    
+    // 4. Word-based matching (for cases like "Science & Technology" vs "Science")
+    if (!subject) {
+        const subjectWords = cleanSubjectName.split(' ').filter(word => word.length > 2);
+        subject = syllabusData.board.subjects.find(s => {
+            const cleanSyllabusName = s.name.toLowerCase()
+                .replace(/[&]/g, 'and')
+                .replace(/[()]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const syllabusWords = cleanSyllabusName.split(' ').filter(word => word.length > 2);
+            
+            // Check if any significant words match
+            return subjectWords.some(word => syllabusWords.includes(word)) ||
+                   syllabusWords.some(word => subjectWords.includes(word));
+        });
+        console.log('Word-based match result:', subject?.name);
+    }
+    
+    // 5. Composite subject matching (for cases like "SOCIAL SCIENCES" = "History and Political science" + "Geography")
+    if (!subject) {
+        const compositeSubjects = {
+            'social sciences': ['history', 'political', 'geography', 'civics', 'economics'],
+            'social science': ['history', 'political', 'geography', 'civics', 'economics'],
+            'science': ['physics', 'chemistry', 'biology', 'environmental'],
+            'languages': ['hindi', 'marathi', 'english', 'sanskrit']
+        };
+        
+        const compositeKey = Object.keys(compositeSubjects).find(key => 
+            cleanSubjectName.includes(key)
+        );
+        
+        if (compositeKey) {
+            const keywords = compositeSubjects[compositeKey];
+            const matchingSubjects = syllabusData.board.subjects.filter(s => {
+                const cleanSyllabusName = s.name.toLowerCase()
+                    .replace(/[&]/g, 'and')
+                    .replace(/[()]/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                
+                // Check if syllabus subject contains any of the keywords
+                return keywords.some(keyword => cleanSyllabusName.includes(keyword));
+            });
+            
+            if (matchingSubjects.length > 0) {
+                // For composite subjects, combine chapters from all matching subjects
+                console.log('Composite subject match found:', matchingSubjects.map(s => s.name));
+                return getCompositeChapters(matchingSubjects, subjectName);
+            }
+        }
+    }
+    
+    console.log('Final matched subject:', subject);
+    
+    if (!subject || !subject.chapters) {
+        console.log('No chapters found for subject, using fallback');
+        console.log('Available subjects in syllabus:', syllabusData.board.subjects.map(s => s.name));
+        return getFallbackChapters(subjectName);
+    }
+    
+    console.log('Found chapters:', subject.chapters.length);
+    
+    // Process chapters and assign importance
+    const allChapters = subject.chapters.map((chapter, index) => {
+        let importance = 0;
+        
+        if (chapter.marks) {
+            // Use actual marks if available
+            importance = parseInt(chapter.marks) || 0;
+        } else {
+            // Assign importance based on position (first chapters are usually more important)
+            importance = Math.max(1, subject.chapters.length - index);
+        }
+        
+        return {
+            name: chapter.name,
+            marks: chapter.marks || null,
+            importance: importance
+        };
+    });
+    
+    // Filter out non-academic chapters
+    const academicChapters = filterAcademicChapters(allChapters);
+    
+    console.log('Original chapters:', allChapters.length, 'Filtered chapters:', academicChapters.length);
+    
+    // Sort by importance (higher importance first)
+    return academicChapters.sort((a, b) => b.importance - a.importance);
+}
+
+// Get composite chapters from multiple subjects
+function getCompositeChapters(matchingSubjects, subjectName) {
+    console.log('Getting composite chapters for:', subjectName);
+    console.log('Matching subjects:', matchingSubjects.map(s => s.name));
+    
+    let allChapters = [];
+    
+    matchingSubjects.forEach((subject, subjectIndex) => {
+        if (subject.chapters) {
+            subject.chapters.forEach((chapter, chapterIndex) => {
+                let importance = 0;
+                
+                if (chapter.marks) {
+                    importance = parseInt(chapter.marks) || 0;
+                } else {
+                    // Assign importance based on subject priority and chapter position
+                    // First subject gets higher priority
+                    importance = (matchingSubjects.length - subjectIndex) * 100 + (subject.chapters.length - chapterIndex);
+                }
+                
+                allChapters.push({
+                    name: chapter.name,
+                    marks: chapter.marks || null,
+                    importance: importance,
+                    sourceSubject: subject.name
+                });
+            });
+        }
+    });
+    
+    // Filter out non-academic chapters
+    const academicChapters = filterAcademicChapters(allChapters);
+    
+    // Sort by importance (higher importance first)
+    academicChapters.sort((a, b) => b.importance - a.importance);
+    
+    console.log('Composite chapters found:', allChapters.length, 'Filtered chapters:', academicChapters.length);
+    return academicChapters;
+}
+
+// Fallback chapters when syllabus data is not available
+function getFallbackChapters(subjectName) {
+    console.log('Using fallback chapters for:', subjectName);
+    
+    const fallbackChapters = {
+        'marathi': ['व्याकरण', 'साहित्य', 'लेखन कौशल', 'बोध', 'कविता', 'निबंध'],
+        'hindi': ['व्याकरण', 'साहित्य', 'लेखन कौशल', 'बोध', 'कविता', 'निबंध'],
+        'english': ['Grammar', 'Literature', 'Writing Skills', 'Comprehension', 'Poetry', 'Essay'],
+        'mathematics': ['Algebra', 'Geometry', 'Trigonometry', 'Statistics', 'Calculus', 'Arithmetic'],
+        'science': ['Physics', 'Chemistry', 'Biology', 'Environmental Science'],
+        'social science': ['History', 'Geography', 'Civics', 'Economics', 'Political Science'],
+        'social sciences': ['History', 'Geography', 'Civics', 'Economics', 'Political Science']
+    };
+    
+    const subjectKey = subjectName.toLowerCase();
+    const chapters = fallbackChapters[subjectKey] || fallbackChapters[subjectKey.replace(/\s+/g, '')] || ['Chapter 1', 'Chapter 2', 'Chapter 3', 'Chapter 4'];
+    
+    console.log('Fallback chapters selected:', chapters);
+    
+    // Convert to chapter objects and filter
+    const chapterObjects = chapters.map((chapter, index) => ({
+        name: chapter,
+        marks: null,
+        importance: chapters.length - index
+    }));
+    
+    // Apply the same filter to fallback chapters
+    const filteredChapters = filterAcademicChapters(chapterObjects);
+    
+    console.log('Fallback chapters filtered:', filteredChapters.length);
+    return filteredChapters;
+}
+
+// Debug function to test subject matching
+function debugSubjectMatching() {
+    if (!syllabusData || !syllabusData.board || !syllabusData.board.subjects) {
+        console.log('No syllabus data available for debugging');
+        return;
+    }
+    
+    console.log('=== SUBJECT MATCHING DEBUG ===');
+    console.log('Available subjects in syllabus:');
+    syllabusData.board.subjects.forEach((subject, index) => {
+        console.log(`${index + 1}. "${subject.name}" (${subject.chapters?.length || 0} chapters)`);
+    });
+    
+    console.log('\nStudent subjects:');
+    if (studentData && studentData.subjects) {
+        studentData.subjects.forEach((subject, index) => {
+            console.log(`${index + 1}. "${subject.name}"`);
+        });
+    }
+    
+    console.log('\n=== MATCHING TEST ===');
+    if (studentData && studentData.subjects) {
+        studentData.subjects.forEach(studentSubject => {
+            const chapters = getChapterImportance(studentSubject.name);
+            console.log(`"${studentSubject.name}" -> ${chapters.length} chapters found`);
+        });
+    }
+}
+
+// Get improvement strategy based on student marks
+function getImprovementStrategy(studentMarks) {
+    if (studentMarks < 30) {
+        return {
+            chapterPercentage: 90,
+            pyqCount: 6,
+            strategy: 'Comprehensive coverage needed'
+        };
+    } else if (studentMarks < 45) {
+        return {
+            chapterPercentage: 50,
+            pyqCount: 3,
+            strategy: 'Moderate focus required'
+        };
+    } else if (studentMarks < 70) {
+        return {
+            chapterPercentage: 20,
+            pyqCount: 2,
+            strategy: 'Targeted improvement'
+        };
+    } else {
+        return {
+            chapterPercentage: 10,
+            pyqCount: 1,
+            strategy: 'Some suggestions for excellence'
+        };
+    }
+}
+
+// Generate PYQs using Gemini
+async function generatePYQs(subjectName, chapterNames, count) {
+    try {
+        const prompt = `
+        Generate ${count} important Previous Year Questions (PYQs) for the subject "${subjectName}" focusing on these chapters: ${chapterNames.join(', ')}.
+        
+        IMPORTANT: 
+        - Generate questions in the same language as the subject name
+        - If subject is in English, generate in English
+        - If subject is in Hindi/other language, generate in that language
+        - Do not mix languages in the same question
+        
+        Return a JSON array with this format:
+        [
+            {
+                "question": "Question text here in subject language only",
+                "chapter": "Chapter name"
+            }
+        ]
+        
+        Make sure questions are relevant to the specified chapters and in the correct language.
+        `;
+        
+        const response = await fetch(GEMINI_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-goog-api-key': GEMINI_API_KEY
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: prompt }]
+                }]
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        const text = result.candidates[0].content.parts[0].text;
+        
+        // Clean and parse JSON
+        let cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        cleanText = cleanText.replace(/^\s*/, '').replace(/\s*$/, '');
+        
+        return JSON.parse(cleanText);
+    } catch (error) {
+        console.error('Error generating PYQs:', error);
+        // Fallback PYQs
+        return chapterNames.slice(0, count).map((chapter, index) => ({
+            question: `Important question from ${chapter} chapter`,
+            chapter: chapter
+        }));
+    }
+}
+
 // Load subject resources for recommendations
 async function loadRecommendationSubjectResources(subjectName) {
+    console.log('Loading resources for subject:', subjectName);
     const loadingElement = document.querySelector(`[data-subject="${subjectName}"]`);
     
-    if (loadingElement) {
-        loadingElement.innerHTML = `
-            <div class="subject-resources">
-                <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
-                <div class="single-feature-line">
-                    <i class="fas fa-check-circle"></i>
-                    <span>Use Student AI's Practice Tests, Flashcards, Topic Explanations & Worksheets</span>
+    if (!loadingElement) {
+        console.log('No loading element found for subject:', subjectName);
+        return;
+    }
+    
+    // Find the student's marks for this subject
+    const studentSubject = studentData.subjects.find(s => 
+        s.name.toLowerCase() === subjectName.toLowerCase()
+    );
+    
+    if (!studentSubject) {
+        console.log('No student subject found for:', subjectName);
+        return;
+    }
+    
+    console.log('Student subject found:', studentSubject);
+    
+    const studentMarks = studentSubject.percentage;
+    const strategy = getImprovementStrategy(studentMarks);
+    const chapters = getChapterImportance(subjectName);
+    
+    console.log('Strategy:', strategy);
+    console.log('Chapters found:', chapters);
+    
+    // Calculate number of chapters to show
+    const chapterCount = Math.max(1, Math.ceil((chapters.length * strategy.chapterPercentage) / 100));
+    const importantChapters = chapters.slice(0, chapterCount);
+    
+    console.log('Important chapters to show:', importantChapters);
+    
+    // Generate PYQs
+    const pyqs = await generatePYQs(subjectName, importantChapters.map(c => c.name), strategy.pyqCount);
+    console.log('Generated PYQs:', pyqs);
+    
+    // Create improvement strategies HTML
+    const improvementStrategiesHTML = `
+        <div class="improvement-strategies">
+            <h5><i class="fas fa-target"></i> Improvement Strategies</h5>
+            <div class="strategy-info">
+                <span class="strategy-badge">${strategy.strategy}</span>
+            </div>
+            
+            <div class="chapters-section">
+                <div class="chapters-list">
+                    ${importantChapters.map((chapter, index) => `
+                        <div class="chapter-item">
+                            <span class="chapter-number">${index + 1}</span>
+                            <span class="chapter-name">${chapter.name}</span>
+                        </div>
+                    `).join('')}
                 </div>
             </div>
-        `;
-    }
+            
+            <div class="section-divider"></div>
+            
+            <div class="pyqs-section">
+                <div class="pyqs-list">
+                    ${pyqs.map((pyq, index) => `
+                        <div class="pyq-item">
+                            <div class="pyq-question">${pyq.question}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Create Student AI help HTML (moved to second position)
+    const studentAIHelpHTML = `
+        <div class="student-ai-help">
+            <h5><i class="fas fa-robot"></i> How Student AI will help you to improve ${subjectName}</h5>
+            <div class="single-feature-line">
+                <i class="fas fa-check-circle"></i>
+                <span>Use Student AI's Practice Tests, Flashcards, Topic Explanations & Worksheets</span>
+            </div>
+        </div>
+    `;
+    
+    // Combine both sections
+    loadingElement.innerHTML = `
+        <div class="subject-resources">
+            ${improvementStrategiesHTML}
+            ${studentAIHelpHTML}
+        </div>
+    `;
+    
+    console.log('Content loaded for subject:', subjectName);
 }
 
 // Load subject resources and update the display (for calendar - uses cached data)
@@ -1710,9 +2481,14 @@ window.showManualEntry = showManualEntry;
 window.showUploadSection = showUploadSection;
 window.scrollToInput = scrollToInput;
 window.toggleCalendarView = toggleCalendarView;
+window.toggleAccordion = toggleAccordion;
 
 window.generateStudyCalendar = generateStudyCalendar;
 window.loadDemoData = loadDemoData;
 window.addNewSubject = addNewSubject;
 window.removeSubject = removeSubject;
 window.updateSubjectCount = updateSubjectCount;
+
+// Debug functions
+window.testErrorMessages = testErrorMessages;
+window.validateClassAndBoard = validateClassAndBoard;
