@@ -930,7 +930,7 @@ body {
 }
 
 .accordion-content {
-    padding: 0 24px 24px 24px;
+    /* padding: 0 24px 24px 24px; */
     background: var(--white);
     border-top: 1px solid var(--medium-gray);
     animation: slideDown 0.3s ease-out;
