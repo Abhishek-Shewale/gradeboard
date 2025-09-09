@@ -1,11 +1,10 @@
 // Gradebook Prototype - JavaScript Core Functions
 // API Configuration
-const GEMINI_API_KEY = 'AIzaSyCbNoabsBsUBCMBzCRtI25DmPiKzhGLwAY';
+const GEMINI_API_KEY = 'AIzaSyBIbJ3GZqfZdVlzDgIezdgwrKp51s62jv0';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 // Global Variables
 let studentData = null;
-let currentTab = 'upload';
 let charts = {};
 let subjectResourcesCache = {}; // Cache for subject resources
 
@@ -82,21 +81,37 @@ function setupEventListeners() {
     }
 }
 
-// Tab Switching
-function switchTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+// Navigation Functions
+function showManualEntry() {
+    // Hide upload section
+    document.querySelector('.upload-section').style.display = 'none';
+    
+    // Show manual entry section
+    document.getElementById('manual-entry-section').style.display = 'block';
+    
+    // Scroll to manual entry section
+    setTimeout(() => {
+        document.getElementById('manual-entry-section').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }, 100);
+}
 
-    // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
-    document.getElementById(`${tabName}-tab`).classList.add('active');
-
-    currentTab = tabName;
+function showUploadSection() {
+    // Hide manual entry section
+    document.getElementById('manual-entry-section').style.display = 'none';
+    
+    // Show upload section
+    document.querySelector('.upload-section').style.display = 'block';
+    
+    // Scroll to upload section
+    setTimeout(() => {
+        document.querySelector('.upload-section').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }, 100);
 }
 
 // File Upload Setup
@@ -598,7 +613,14 @@ function processStudentData(data) {
     
     // Show dashboard
     document.getElementById('dashboard').style.display = 'block';
-    document.getElementById('input-section').scrollIntoView({ behavior: 'smooth' });
+    
+    // Auto-scroll to results section instead of input section
+    setTimeout(() => {
+        document.getElementById('dashboard').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+        });
+    }, 300);
     
     // Generate charts
     generateCharts();
@@ -1987,10 +2009,11 @@ function toggleCalendarView(viewType) {
 }
 
 // Export functions for global access
-window.switchTab = switchTab;
+window.showManualEntry = showManualEntry;
+window.showUploadSection = showUploadSection;
 window.scrollToInput = scrollToInput;
 window.toggleCalendarView = toggleCalendarView;
-window.showFAQ = showFAQ;
+
 window.generateStudyCalendar = generateStudyCalendar;
 window.loadDemoData = loadDemoData;
 window.addNewSubject = addNewSubject;
