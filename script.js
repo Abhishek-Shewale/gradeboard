@@ -1076,10 +1076,6 @@ ${strongSubjects.map(s => `- ${s.name}: ${s.percentage.toFixed(1)}%`).join('\n')
 Please provide a JSON response with:
 1. overallAssessment: Brief assessment of overall performance
 2. weakSubjects: Array of subjects needing attention with specific improvement strategies
-3. strongSubjects: Subjects to maintain and build upon
-4. studyTips: 3-5 general study improvement tips
-5. timeline: Suggested 4-week improvement plan
-6. motivation: Encouraging message for the student
 
 Format as valid JSON only, no additional text.
 `;
@@ -1114,27 +1110,6 @@ function displayRecommendations(recommendations) {
         return;
     }
     
-    // Collect all improvement strategies from weak subjects
-    let allImprovementStrategies = [];
-    if (recommendations.weakSubjects) {
-        recommendations.weakSubjects.forEach(subject => {
-            if (subject.improvementStrategies) {
-                allImprovementStrategies = allImprovementStrategies.concat(subject.improvementStrategies);
-            }
-        });
-    }
-    
-    // Remove duplicates from improvement strategies and limit to 3
-    let uniqueImprovementStrategies = [...new Set(allImprovementStrategies)].slice(0, 3);
-    
-    // If no improvement strategies from AI, provide fallback strategies
-    if (uniqueImprovementStrategies.length === 0) {
-        uniqueImprovementStrategies = [
-            'Focus on understanding fundamental concepts and practice regularly',
-            'Create a consistent study schedule with dedicated time for each subject',
-            'Seek additional help from teachers or tutors for difficult topics'
-        ];
-    }
     
     container.innerHTML = `
         <div class="recommendation-item">
@@ -1162,31 +1137,6 @@ function displayRecommendations(recommendations) {
             </div>
         `;
         }).join('') : ''}
-        
-        ${uniqueImprovementStrategies.length > 0 ? `
-            <div class="recommendation-item">
-                <h4><i class="fas fa-lightbulb"></i> Improvement Strategies</h4>
-                <ul>
-                    ${uniqueImprovementStrategies.map(strategy => `<li>${strategy}</li>`).join('')}
-                        </ul>
-                    </div>
-                ` : ''}
-        
-        ${recommendations.studyTips ? `
-            <div class="recommendation-item">
-                <h4><i class="fas fa-lightbulb"></i> Study Tips</h4>
-                <ul>
-                    ${recommendations.studyTips.slice(0, 3).map(tip => `<li>${tip}</li>`).join('')}
-                </ul>
-            </div>
-        ` : ''}
-        
-        ${recommendations.motivation ? `
-            <div class="recommendation-item">
-                <h4><i class="fas fa-heart"></i> Encouragement</h4>
-                <p>${recommendations.motivation}</p>
-            </div>
-        ` : ''}
     `;
     
     // Add study calendar section
@@ -1203,217 +1153,7 @@ function displayRecommendations(recommendations) {
     }
 }
 
-// Generate subject-specific resources
-async function generateSubjectResources(subjectName) {
-    if (!subjectName) return '';
-    
-    try {
-        const resources = await getSubjectResources(subjectName);
-        
-        return `
-            <div class="subject-resources">
-                <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
-                <div class="resource-grid">
-                    <div class="resource-item">
-                        <h6><i class="fas fa-list-ol"></i> Important Topics</h6>
-                        <ul>
-                            ${resources.topics.map(topic => `<li>${topic}</li>`).join('')}
-                        </ul>
-                    </div>
-                    <div class="resource-item">
-                        <h6><i class="fas fa-flash"></i> Flashcards</h6>
-                        <ul>
-                            ${resources.flashcards.map(card => `<li>${card}</li>`).join('')}
-                        </ul>
-                    </div>
-                    <div class="resource-item">
-                        <h6><i class="fas fa-file-alt"></i> Worksheets</h6>
-                        <ul>
-                            ${resources.worksheets.map(worksheet => `<li>${worksheet}</li>`).join('')}
-                        </ul>
-                    </div>
-                    <div class="resource-item">
-                        <h6><i class="fas fa-clipboard-check"></i> Mock Practice</h6>
-                        <ul>
-                            ${resources.mockPractice.map(practice => `<li>${practice}</li>`).join('')}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        console.error('Error generating subject resources:', error);
-        return `
-            <div class="subject-resources">
-                <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
-                <div class="resource-grid">
-                    <div class="resource-item">
-                        <h6><i class="fas fa-list-ol"></i> Important Topics</h6>
-                        <ul>
-                            <li>Fundamental concepts</li>
-                            <li>Key principles</li>
-                            <li>Important theories</li>
-                            <li>Core applications</li>
-                        </ul>
-                    </div>
-                    <div class="resource-item">
-                        <h6><i class="fas fa-flash"></i> Flashcards</h6>
-                        <ul>
-                            <li>Key terms</li>
-                            <li>Important concepts</li>
-                            <li>Formulas and rules</li>
-                            <li>Problem-solving steps</li>
-                        </ul>
-                    </div>
-                    <div class="resource-item">
-                        <h6><i class="fas fa-file-alt"></i> Worksheets</h6>
-                        <ul>
-                            <li>Practice exercises</li>
-                            <li>Review sheets</li>
-                            <li>Sample problems</li>
-                            <li>Concept applications</li>
-                        </ul>
-                    </div>
-                    <div class="resource-item">
-                        <h6><i class="fas fa-clipboard-check"></i> Mock Practice</h6>
-                        <ul>
-                            <li>Practice tests</li>
-                            <li>Mock exams</li>
-                            <li>Skill assessments</li>
-                            <li>Performance tracking</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-}
 
-// Get subject-specific resources from Gemini API (with caching)
-async function getSubjectResources(subjectName) {
-    console.log('Subject name received:', subjectName);
-    
-    if (!subjectName || !studentData) {
-        return getFallbackResources();
-    }
-    
-    // Check cache first
-    if (subjectResourcesCache[subjectName]) {
-        console.log('Using cached resources for', subjectName);
-        return subjectResourcesCache[subjectName];
-    }
-    
-    try {
-        const prompt = createSubjectContentPrompt(subjectName);
-        const response = await fetch(GEMINI_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-goog-api-key': GEMINI_API_KEY
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }]
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const generatedText = data.candidates[0].content.parts[0].text;
-        const content = parseSubjectContent(generatedText);
-        
-        // Cache the result
-        subjectResourcesCache[subjectName] = content;
-        console.log('Generated and cached content for', subjectName, ':', content);
-        return content;
-    } catch (error) {
-        console.error('Error generating subject content:', error);
-        return getFallbackResources();
-    }
-}
-
-// Create prompt for subject-specific content generation
-function createSubjectContentPrompt(subjectName) {
-    const studentClass = studentData.class || '10th';
-    const board = studentData.board || 'CBSE';
-    
-    console.log('Creating prompt for:', { subjectName, studentClass, board });
-    
-    return `
-Generate age-appropriate study content for a ${studentClass} student studying ${board} curriculum.
-
-Student Details:
-- Class: ${studentClass}
-- Board: ${board}
-- Subject: ${subjectName}
-
-Please provide ONLY a valid JSON response with exactly 4 categories, each containing 3 items (keep each item short and concise):
-        
-        {
-            "topics": ["3 key topics for ${subjectName} ${studentClass}"],
-            "flashcards": ["3 important concepts to memorize"],
-            "worksheets": ["3 practice exercises"],
-            "mockPractice": ["3 test activities"]
-        }
-        
-        Requirements:
-        - Keep each item short and concise (max 8-10 words per item)
-        - Content appropriate for ${studentClass} ${board} level
-        - Use proper language (Hindi/Marathi for language subjects, English for others)
-        - Focus on most important topics only
-        
-        IMPORTANT: Return ONLY the JSON object, no markdown formatting, no code blocks, no additional text.
-`;
-}
-
-// Parse subject content from Gemini response
-function parseSubjectContent(apiResponse) {
-    try {
-        // Extract JSON from markdown code blocks if present
-        let jsonString = apiResponse.trim();
-        
-        // Remove markdown code block markers
-        if (jsonString.startsWith('```json')) {
-            jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (jsonString.startsWith('```')) {
-            jsonString = jsonString.replace(/^```\s*/, '').replace(/\s*```$/, '');
-        }
-        
-        // Clean up any extra text before/after JSON
-        const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            jsonString = jsonMatch[0];
-        }
-        
-        const content = JSON.parse(jsonString);
-        return {
-            topics: content.topics || [],
-            flashcards: content.flashcards || [],
-            worksheets: content.worksheets || [],
-            mockPractice: content.mockPractice || []
-        };
-    } catch (error) {
-        console.error('Error parsing subject content:', error);
-        console.error('Raw response:', apiResponse);
-        return getFallbackResources();
-    }
-}
-
-// Fallback resources when API fails
-function getFallbackResources() {
-    return {
-        topics: ['Fundamental concepts', 'Key principles', 'Important theories', 'Core applications'],
-        flashcards: ['Key terms', 'Important concepts', 'Formulas and rules', 'Problem-solving steps'],
-        worksheets: ['Practice exercises', 'Review sheets', 'Sample problems', 'Concept applications'],
-        mockPractice: ['Practice tests', 'Mock exams', 'Skill assessments', 'Performance tracking']
-    };
-}
 
 // Fallback Recommendations
 function displayFallbackRecommendations(data) {
@@ -1436,20 +1176,6 @@ function displayFallbackRecommendations(data) {
                 </ul>
             </div>
         ` : ''}
-        
-        <div class="recommendation-item">
-            <h4><i class="fas fa-lightbulb"></i> General Study Tips</h4>
-            <ul>
-                <li>Create a consistent study schedule with dedicated time for each subject</li>
-                <li>Practice active learning techniques like summarizing and teaching others</li>
-                <li>Take regular breaks during study sessions to maintain focus</li>
-            </ul>
-        </div>
-        
-        <div class="recommendation-item">
-            <h4><i class="fas fa-heart"></i> Encouragement</h4>
-            <p>Every student learns at their own pace. With consistent effort and the right strategies, improvement is always possible. Stay positive and keep working towards your goals!</p>
-        </div>
     `;
 }
 
@@ -1772,78 +1498,38 @@ function displayWeeklyView(container) {
 
 // Load subject resources for recommendations
 async function loadRecommendationSubjectResources(subjectName) {
-    try {
-        const resources = await getSubjectResources(subjectName);
-        const loadingElement = document.querySelector(`[data-subject="${subjectName}"]`);
-        
-        if (loadingElement) {
-            loadingElement.innerHTML = `
-                <div class="subject-resources">
-                    <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
-                    <div class="resource-grid">
-                        <div class="resource-item">
-                            <h6><i class="fas fa-list-ol"></i> Important Topics</h6>
-                            <ul>
-                                ${resources.topics.map(topic => `<li>${topic}</li>`).join('')}
-                            </ul>
-                        </div>
-                        <div class="resource-item">
-                            <h6><i class="fas fa-flash"></i> Flashcards</h6>
-                            <ul>
-                                ${resources.flashcards.map(card => `<li>${card}</li>`).join('')}
-                            </ul>
-                        </div>
-                        <div class="resource-item">
-                            <h6><i class="fas fa-file-alt"></i> Worksheets</h6>
-                            <ul>
-                                ${resources.worksheets.map(worksheet => `<li>${worksheet}</li>`).join('')}
-                            </ul>
-                        </div>
-                        <div class="resource-item">
-                            <h6><i class="fas fa-clipboard-check"></i> Mock Practice</h6>
-                            <ul>
-                                ${resources.mockPractice.map(practice => `<li>${practice}</li>`).join('')}
-                            </ul>
-                        </div>
-                    </div>
+    const loadingElement = document.querySelector(`[data-subject="${subjectName}"]`);
+    
+    if (loadingElement) {
+        loadingElement.innerHTML = `
+            <div class="subject-resources">
+                <h5><i class="fas fa-book"></i> How Student AI will help you to improve ${subjectName}</h5>
+                <div class="single-feature-line">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Use Student AI's Practice Tests, Flashcards, Topic Explanations & Worksheets</span>
                 </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Error loading recommendation resources for', subjectName, ':', error);
+            </div>
+        `;
     }
 }
 
 // Load subject resources and update the display (for calendar - uses cached data)
 function loadSubjectResources(subjectName) {
-    try {
-        // Use cached resources if available, otherwise show fallback
-        const resources = subjectResourcesCache[subjectName] || getFallbackResources();
-        const subjectElements = document.querySelectorAll(`[data-subject="${subjectName}"]`);
-        
-        console.log(`Loading resources for ${subjectName}:`, {
-            hasCache: !!subjectResourcesCache[subjectName],
-            elementsFound: subjectElements.length,
-            resources: resources
-        });
-        
-        subjectElements.forEach(element => {
-            const loadingElement = element.querySelector('.loading-content');
-            if (loadingElement) {
-                loadingElement.innerHTML = `
-                    <div class="study-content">
-                        <div class="content-items">
-                            ${resources.topics.slice(0, 3).map(topic => `
-                                <span class="content-tag topic-tag">${topic}</span>
-                            `).join('')}
-                        </div>
+    const subjectElements = document.querySelectorAll(`[data-subject="${subjectName}"]`);
+    
+    subjectElements.forEach(element => {
+        const loadingElement = element.querySelector('.loading-content');
+        if (loadingElement) {
+            loadingElement.innerHTML = `
+                <div class="study-content">
+                    <div class="single-feature-line">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Use Student AI's Practice Tests, Flashcards, Topic Explanations & Worksheets</span>
                     </div>
-                `;
-            }
-        });
-    } catch (error) {
-        console.error('Error loading resources for', subjectName, ':', error);
-    }
+                </div>
+            `;
+        }
+    });
 }
 
 function displayMonthlyView(container) {
@@ -1972,34 +1658,45 @@ function getMessageIcon(type) {
 
 
 
-// Add Study Calendar Section
+// Add Study Planner Section
 function addStudyCalendarSection() {
     const dashboard = document.getElementById('dashboard');
-    if (dashboard && !document.getElementById('study-calendar-section')) {
-        const calendarSection = document.createElement('div');
-        calendarSection.id = 'study-calendar-section';
-        calendarSection.className = 'study-calendar-section';
-        calendarSection.innerHTML = `
+    if (dashboard && !document.getElementById('study-planner-section')) {
+        const plannerSection = document.createElement('div');
+        plannerSection.id = 'study-planner-section';
+        plannerSection.className = 'study-planner-section';
+        plannerSection.innerHTML = `
             <div class="container">
-                <h2 class="section-title">Study Calendar</h2>
-                <div class="calendar-controls">
-                    <button class="btn btn-outline" onclick="generateStudyCalendar('weekly')">
-                        <i class="fas fa-calendar-week"></i> 1 Week Plan
-                    </button>
-                    <button class="btn btn-outline" onclick="generateStudyCalendar('monthly')">
-                        <i class="fas fa-calendar-alt"></i> 1 Month Plan
-                    </button>
-                </div>
-                <div class="calendar-container" id="calendar-container">
-                    <div class="calendar-placeholder">
-                        <i class="fas fa-calendar-alt"></i>
-                        <h3>Choose a Study Plan</h3>
-                        <p>Select 1 Week or 1 Month plan to generate a personalized study calendar for weak subjects.</p>
+                <h2 class="section-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Study Planner
+                </h2>
+                <div class="study-planner-content">
+                    <div class="planner-question">
+                        <h3>Do you want to generate a personalized study planner?</h3>
+                        <p>Create a customized study schedule for your weak subjects with 1-week or 1-month plans.</p>
                     </div>
+                    <div class="planner-options">
+                        <a href="https://trial.thestudentai.in/" target="_blank" class="planner-option planner-button">
+                            <div class="option-icon">
+                                <i class="fas fa-calendar-week"></i>
+                            </div>
+                            <h4>1 Week Plan</h4>
+                            <p>Quick 7-day study schedule</p>
+                        </a>
+                        <a href="https://trial.thestudentai.in/" target="_blank" class="planner-option planner-button">
+                            <div class="option-icon">
+                                <i class="fas fa-calendar-alt"></i>
+                            </div>
+                            <h4>1 Month Plan</h4>
+                            <p>Comprehensive 30-day study plan</p>
+                        </a>
+                    </div>
+                    
                 </div>
             </div>
         `;
-        dashboard.appendChild(calendarSection);
+        dashboard.appendChild(plannerSection);
     }
 }
 

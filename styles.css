@@ -746,11 +746,96 @@ body {
     border-top: 1px solid var(--medium-gray);
 }
 
-/* Study Calendar Section */
-.study-calendar-section {
+/* Study Planner Section */
+.study-planner-section {
     padding: 96px 0;
     background: var(--white);
+    border-top: 1px solid var(--medium-gray);
 }
+
+.study-planner-content {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.planner-question {
+    margin-bottom: 48px;
+}
+
+.planner-question h3 {
+    font-size: 1.875rem;
+    color: var(--text-color);
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+.planner-question p {
+    font-size: 1.125rem;
+    color: var(--dark-gray);
+    line-height: 1.6;
+}
+
+.planner-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 32px;
+    margin-bottom: 48px;
+}
+
+.planner-option {
+    background: var(--light-gray);
+    padding: 32px 24px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--medium-gray);
+    transition: var(--transition);
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.planner-option:hover {
+    border-color: var(--primary-color);
+    background: rgba(124, 58, 237, 0.05);
+    transform: translateY(-2px);
+    text-decoration: none;
+    color: inherit;
+}
+
+.planner-button {
+    cursor: pointer;
+}
+
+.planner-button:hover h4 {
+    color: var(--primary-color);
+}
+
+.option-icon {
+    width: 64px;
+    height: 64px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: var(--white);
+    font-size: 1.5rem;
+}
+
+.planner-option h4 {
+    font-size: 1.25rem;
+    color: var(--text-color);
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.planner-option p {
+    color: var(--dark-gray);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
 
 .calendar-placeholder {
     text-align: center;
@@ -795,49 +880,34 @@ body {
     font-size: 1.125rem;
 }
 
-.resource-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-}
-
-.resource-item {
-    background: var(--white);
-    padding: 16px;
-    border-radius: var(--border-radius);
-    border: 1px solid var(--medium-gray);
-}
-
-.resource-item h6 {
-    color: var(--primary-color);
-    margin-bottom: 12px;
-    font-size: 0.95rem;
+/* Single Feature Line */
+.single-feature-line {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-weight: 600;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--white);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--medium-gray);
+    transition: var(--transition);
 }
 
-.resource-item ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+.single-feature-line:hover {
+    border-color: var(--primary-color);
+    background: rgba(124, 58, 237, 0.05);
 }
 
-.resource-item li {
-    padding: 4px 0;
-    font-size: 0.9rem;
-    color: var(--dark-gray);
-    position: relative;
-    padding-left: 16px;
+.single-feature-line i {
+    color: var(--success-color);
+    font-size: 1.1rem;
+    flex-shrink: 0;
 }
 
-.resource-item li:before {
-    content: '•';
-    position: absolute;
-    left: 0;
-    color: var(--primary-color);
-    font-weight: bold;
+.single-feature-line span {
+    color: var(--text-color);
+    font-weight: 500;
+    font-size: 1rem;
+    line-height: 1.4;
 }
 
 /* Subject Details */
@@ -1345,6 +1415,16 @@ body {
     .form-actions .btn {
         width: 100%;
     }
+    
+    .planner-options {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+    
+    .planner-question h3 {
+        font-size: 1.5rem;
+    }
+    
 }
 
 @media (max-width: 480px) {
