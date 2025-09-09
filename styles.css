@@ -1797,7 +1797,7 @@ body {
     
     /* Improvement Strategies Responsive */
     .chapter-item {
-        flex-direction: column;
+        flex-direction: row;
         align-items: flex-start;
         gap: 8px;
     }
@@ -1846,7 +1846,7 @@ body {
     }
     
     .recommendations-section {
-        padding: 32px;
+        padding: 12px;
     }
 }
 
